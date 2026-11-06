@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>News Spike Signal Journal</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e1116; --panel: #161b22; --panel2: #1c2230;
+    --border: #2a3140; --text: #e6edf3; --muted: #8b949e;
+    --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+    --yellow: #d29922; --purple: #a371f7;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; padding: 16px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 10px 16px; cursor: pointer; background: none; border: none; color: var(--muted); font-size: 14px; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .section-title { font-size: 13px; color: var(--blue); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: var(--text); font-size: 13px; font-family: inherit; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blue); }
+  textarea { resize: vertical; min-height: 60px; }
+  button.btn { background: var(--blue); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+  button.btn:hover { opacity: 0.9; }
+  button.btn.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button.btn.danger { background: var(--red); }
+  button.btn.small { padding: 5px 10px; font-size: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .stat { background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+  .stat .label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .stat .value { font-size: 22px; font-weight: 700; }
+  .stat .value.green { color: var(--green); }
+  .stat .value.red { color: var(--red); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 8px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  td { padding: 8px; border-bottom: 1px solid var(--border); }
+  tr:hover { background: var(--panel2); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .tag.taken { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tag.skipped { background: rgba(139,148,158,0.15); color: var(--muted); }
+  .tag.fired { background: rgba(88,166,255,0.15); color: var(--blue); }
+  .tag.cancelled { background: rgba(248,81,73,0.15); color: var(--red); }
+  .tag.win { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tag.loss { background: rgba(248,81,73,0.15); color: var(--red); }
+  .tag.buy { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tag.sell { background: rgba(248,81,73,0.15); color: var(--red); }
+  .muted { color: var(--muted); }
+  .hidden { display: none; }
+  .flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  canvas { background: var(--panel2); border-radius: 6px; width: 100%; }
+  .detail-row { background: var(--panel2); padding: 12px; border-radius: 6px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; font-size: 12px; }
+  .detail-grid div span:first-child { color: var(--muted); display: block; font-size: 10px; }
+  .reason-box { background: var(--bg); border-left: 3px solid var(--purple); padding: 10px; border-radius: 4px; margin-top: 8px; font-size: 12px; }
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>📊 News Spike Signal Journal</h1>
+<div class="sub">Signal → Outcome → Edge measurement. All data saved locally in your browser.</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="new">+ New Signal</button>
+  <button class="tab" data-tab="journal">Journal</button>
+  <button class="tab" data-tab="dashboard">Dashboard</button>
+  <button class="tab" data-tab="data">Data</button>
+</div>
+
+<!-- ============ NEW SIGNAL ============ -->
+<div id="tab-new">
+  <div class="panel">
+    <div class="section-title">1. Event Context</div>
+    <div class="grid">
+      <div><label>Event Name</label><input id="f-eventName" placeholder="US CPI YoY"></div>
+      <div><label>Release Date/Time</label><input id="f-releaseAt" type="datetime-local"></div>
+      <div><label>Actual</label><input id="f-actual" type="number" step="any"></div>
+      <div><label>Consensus</label><input id="f-consensus" type="number" step="any"></div>
+      <div><label>Prior</label><input id="f-prior" type="number" step="any"></div>
+      <div><label>Revised Prior</label><input id="f-revisedPrior" type="number" step="any"></div>
+      <div><label>Forecast Dispersion (std)</label><input id="f-dispersion" type="number" step="any" placeholder="0.2"></div>
+      <div><label>Surprise Z (auto if blank)</label><input id="f-surpriseZ" type="number" step="any"></div>
+      <div><label>Release Weight</label>
+        <select id="f-releaseWeight">
+          <option value="8.5">CPI (8.5×)</option>
+          <option value="6.7">NFP (6.7×)</option>
+          <option value="4.0">PPI (4.0×)</option>
+          <option value="3.9">FOMC (3.9×)</option>
+          <option value="2.0">Other (2.0×)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section-title">2. Market Context</div>
+    <div class="grid">
+      <div><label>Pair</label>
+        <select id="f-pair">
+          <option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option>
+          <option>AUD/USD</option><option>XAU/USD</option><option>USD/CAD</option>
+        </select>
+      </div>
+      <div><label>Session</label>
+        <select id="f-session"><option>Asia</option><option>London</option><option>NY Overlap</option><option>NY</option></select>
+      </div>
+      <div><label>ATR (14)</label><input id="f-atr" type="number" step="any"></div>
+      <div><label>Spread (pips)</label><input id="f-spread" type="number" step="any"></div>
+      <div><label>Depth Drop % (5m)</label><input id="f-depthDrop" type="number" step="any"></div>
+      <div><label>IV/Skew Change</label><input id="f-ivSkew" type="number" step="any"></div>
+      <div><label>COT Positioning %ile</label><input id="f-cot" type="number" step="any" placeholder="0-100"></div>
+      <div><label>Volatility Regime</label>
+        <select id="f-regime"><option>Normal</option><option>High</option><option>Low</option></select>
+      </div>
+      <div><label>Risk On/Off</label>
+        <select id="f-roro"><option>Neutral</option><option>Risk-On</option><option>Risk-Off</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section-title">3. Signal</div>
+    <div class="grid">
+      <div><label>Direction</label>
+        <select id="f-direction"><option>BUY</option><option>SELL</option></select>
+      </div>
+      <div><label>Entry Price</label><input id="f-entrySignal" type="number" step="any"></div>
+      <div><label>Stop Loss</label><input id="f-stop" type="number" step="any"></div>
+      <div><label>Target</label><input id="f-target" type="number" step="any"></div>
+      <div><label>Time Stop (sec)</label><input id="f-timeStopSec" type="number" value="90"></div>
+      <div><label>Confidence (0-100)</label><input id="f-confidence" type="number" min="0" max="100"></div>
+      <div><label>Spike Strength</label>
+        <select id="f-spikeClass">
+          <option value="weak">&lt;1.5× ATR (skip)</option>
+          <option value="small">1.5–2.5× ATR</option>
+          <option value="normal" selected>2.5–4× ATR</option>
+          <option value="extreme">&gt;4× ATR</option>
+        </select>
+      </div>
+      <div><label>Status</label>
+        <select id="f-status">
+          <option value="fired">Fired</option>
+          <option value="taken">Taken</option>
+          <option value="skipped">Skipped</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label>Reason (why BUY/SELL)</label>
+      <textarea id="f-reason" placeholder="US CPI +0.4σ above consensus → USD bullish → EUR/USD bearish. Positioning extreme short (squeeze fuel)."></textarea>
+    </div>
+    <button class="btn" onclick="saveSignal()">💾 Save Signal</button>
+    <span id="saveMsg" class="muted" style="margin-left:10px;"></span>
+  </div>
+</div>
+
+<!-- ============ JOURNAL ============ -->
+<div id="tab-journal" class="hidden">
+  <div class="panel">
+    <div class="flex-between" style="margin-bottom:12px;">
+      <div class="section-title" style="margin:0;">Signal Log</div>
+      <div class="flex">
+        <select id="filterPair" onchange="renderJournal()" style="width:auto;">
+          <option value="">All pairs</option>
+          <option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option>
+          <option>AUD/USD</option><option>XAU/USD</option><option>USD/CAD</option>
+        </select>
+        <select id="filterStatus" onchange="renderJournal()" style="width:auto;">
+          <option value="">All status</option>
+          <option value="taken">Taken</option>
+          <option value="skipped">Skipped</option>
+          <option value="fired">Fired</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+    </div>
+    <div id="journalTable"></div>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div id="tab-dashboard" class="hidden">
+  <div class="panel">
+    <div class="section-title">Core Stats (closed trades only)</div>
+    <div class="stats" id="coreStats"></div>
+  </div>
+
+  <div class="panel">
+    <div class="section-title">Equity Curve (R)</div>
+    <canvas id="equityCanvas" height="220"></canvas>
+  </div>
+
+  <div class="panel">
+    <div class="section-title">Breakdown — by Event</div>
+    <div id="breakdownEvent"></div>
+  </div>
+  <div class="panel">
+    <div class="section-title">Breakdown — by Pair</div>
+    <div id="breakdownPair"></div>
+  </div>
+  <div class="panel">
+    <div class="section-title">Breakdown — by Spike Strength</div>
+    <div id="breakdownSpike"></div>
+  </div>
+  <div class="panel">
+    <div class="section-title">Breakdown — by Confidence Bucket</div>
+    <div id="breakdownConf"></div>
+  </div>
+  <div class="panel">
+    <div class="section-title">Taken vs Skipped</div>
+    <div id="takenSkipped"></div>
+  </div>
+</div>
+
+<!-- ============ DATA ============ -->
+<div id="tab-data" class="hidden">
+  <div class="panel">
+    <div class="section-title">Export / Import</div>
+    <div class="flex">
+      <button class="btn secondary" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn secondary" onclick="exportJSON()">⬇ Export JSON</button>
+      <button class="btn secondary" onclick="document.getElementById('importFile').click()">⬆ Import JSON</button>
+      <input type="file" id="importFile" accept=".json" class="hidden" onchange="importJSON(event)">
+      <button class="btn danger" onclick="clearAll()">🗑 Clear All Data</button>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="section-title">Storage</div>
+    <p class="muted" id="storageInfo"></p>
+  </div>
+</div>
+
+<script>
+// ============ STORAGE ============
+const STORAGE_KEY = 'spikeJournal_v1';
+let signals = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(signals));
+  updateStorageInfo();
+}
+
+function updateStorageInfo() {
+  const el = document.getElementById('storageInfo');
+  if (el) {
+    const bytes = new Blob([JSON.stringify(signals)]).size;
+    el.textContent = `${signals.length} signals • ${(bytes/1024).toFixed(1)} KB`;
+  }
+}
+
+// ============ TABS ============
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('[id^="tab-"]').forEach(x => x.classList.add('hidden'));
+    t.classList.add('active');
+    document.getElementById('tab-' + t.dataset.tab).classList.remove('hidden');
+    if (t.dataset.tab === 'journal') renderJournal();
+    if (t.dataset.tab === 'dashboard') renderDashboard();
+    if (t.dataset.tab === 'data') updateStorageInfo();
+  };
+});
+
+// ============ SAVE SIGNAL ============
+function saveSignal() {
+  const get = id => document.getElementById(id).value.trim();
+  const num = id => { const v = get(id); return v === '' ? null : parseFloat(v); };
+
+  const actual = num('f-actual');
+  const consensus = num('f-consensus');
+  const dispersion = num('f-dispersion');
+  let surpriseZ = num('f-surpriseZ');
+  if (surpriseZ === null && actual !== null && consensus !== null) {
+    surpriseZ = dispersion ? +((actual - consensus) / dispersion).toFixed(2) : (actual - consensus);
+  }
+
+  const sig = {
+    id: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    createdAt: new Date().toISOString(),
+    eventName: get('f-eventName') || 'Untitled event',
+    releaseAt: get('f-releaseAt') || null,
+    actual, consensus,
+    prior: num('f-prior'),
+    revisedPrior: num('f-revisedPrior'),
+    dispersion,
+    surpriseZ,
+    releaseWeight: parseFloat(get('f-releaseWeight')),
+    pair: get('f-pair'),
+    session: get('f-session'),
+    context: {
+      atr: num('f-atr'),
+      spread: num('f-spread'),
+      depthDrop: num('f-depthDrop'),
+      ivSkew: num('f-ivSkew'),
+      cot: num('f-cot'),
+      regime: get('f-regime'),
+      roro: get('f-roro')
+    },
+    direction: get('f-direction'),
+    entrySignal: num('f-entrySignal'),
+    stop: num('f-stop'),
+    target: num('f-target'),
+    timeStopSec: num('f-timeStopSec'),
+    confidence: num('f-confidence'),
+    spikeClass: get('f-spikeClass'),
+    status: get('f-status'),
+    reason: get('f-reason'),
+    fillPrice: null, slippage: null, size: null,
+    outcome: null,
+    tags: []
+  };
+
+  signals.unshift(sig);
+  save();
+  document.getElementById('saveMsg').textContent = '✓ Saved ' + sig.id;
+  setTimeout(() => document.getElementById('saveMsg').textContent = '', 3000);
+  // Reset only the signal execution fields (keep event/context for fast re-entry)
+  ['f-entrySignal','f-stop','f-target','f-confidence','f-reason','f-actual','f-consensus'].forEach(id => document.getElementById(id).value = '');
+}
+
+// ============ JOURNAL ============
+function renderJournal() {
+  const fp = document.getElementById('filterPair').value;
+  const fs = document.getElementById('filterStatus').value;
+  let list = signals.slice();
+  if (fp) list = list.filter(s => s.pair === fp);
+  if (fs === 'closed') list = list.filter(s => s.outcome);
+  else if (fs) list = list.filter(s => s.status === fs);
+
+  const el = document.getElementById('journalTable');
+  if (!list.length) { el.innerHTML = '<div class="empty">No signals yet. Create one in the "New Signal" tab.</div>'; return; }
+
+  let html = `<table><thead><tr>
+    <th>Time</th><th>Event</th><th>Pair</th><th>Dir</th><th>Conf</th>
+    <th>Spike</th><th>Status</th><th>Outcome</th><th>R</th><th></th>
+  </tr></thead><tbody>`;
+
+  list.forEach(s => {
+    const o = s.outcome;
+    const rTag = o ? `<span class="tag ${o.rMultiple >= 0 ? 'win':'loss'}">${o.rMultiple >= 0 ? '+':''}${o.rMultiple.toFixed(2)}R</span>` : '<span class="muted">—</span>';
+    const outcomeTag = o
+      ? `<span class="tag ${o.exitReason === 'target' ? 'win' : (o.exitReason === 'stop' ? 'loss' : 'skipped')}">${o.exitReason}</span>`
+      : `<span class="muted">open</span>`;
+    const dt = new Date(s.createdAt);
+    const ts = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+
+    html += `<tr>
+      <td class="muted">${ts}</td>
+      <td>${esc(s.eventName)}</td>
+      <td>${s.pair}</td>
+      <td><span class="tag ${s.direction.toLowerCase()}">${s.direction}</span></td>
+      <td>${s.confidence ?? '—'}</td>
+      <td>${s.spikeClass}</td>
+      <td><span class="tag ${s.status}">${s.status}</span></td>
+      <td>${outcomeTag}</td>
+      <td>${rTag}</td>
+      <td><button class="btn small secondary" onclick="toggleDetail('${s.id}')">Details</button></td>
+    </tr>
+    <tr id="detail-${s.id}" class="hidden"><td colspan="10">
+      <div class="detail-row">
+        <div class="detail-grid">
+          <div><span>Surprise Z</span>${s.surpriseZ ?? '—'}</div>
+          <div><span>Release Weight</span>${s.releaseWeight}×</div>
+          <div><span>ATR</span>${s.context.atr ?? '—'}</div>
+          <div><span>Spread</span>${s.context.spread ?? '—'}</div>
+          <div><span>Depth Drop</span>${s.context.depthDrop ?? '—'}%</div>
+          <div><span>COT %ile</span>${s.context.cot ?? '—'}</div>
+          <div><span>Regime</span>${s.context.regime}</div>
+          <div><span>RORO</span>${s.context.roro}</div>
+          <div><span>Entry</span>${s.entrySignal ?? '—'}</div>
+          <div><span>Stop</span>${s.stop ?? '—'}</div>
+          <div><span>Target</span>${s.target ?? '—'}</div>
+          <div><span>Time Stop</span>${s.timeStopSec ?? '—'}s</div>
+        </div>
+        <div class="reason-box"><strong>Reason:</strong> ${esc(s.reason || '—')}</div>
+        ${o ? `<div class="reason-box" style="border-left-color:${o.rMultiple>=0?'var(--green)':'var(--red)'}">
+          <strong>Outcome:</strong> exit ${o.exitPrice} via ${o.exitReason} • ${o.rMultiple.toFixed(2)}R •
+          MAE ${o.mae ?? '—'} MFE ${o.mfe ?? '—'} • closed ${new Date(o.closedAt).toLocaleString()}
+        </div>` : `<div class="reason-box" style="border-left-color:var(--yellow)">
+          <strong>Record outcome:</strong>
+          <div class="flex" style="margin-top:6px;">
+            <input id="exit-${s.id}" type="number" step="any" placeholder="exit price" style="max-width:140px;">
+            <select id="reason-${s.id}" style="max-width:140px;">
+              <option value="target">target</option>
+              <option value="stop">stop</option>
+              <option value="time_stop">time_stop</option>
+              <option value="manual">manual</option>
+            </select>
+            <button class="btn small" onclick="closeSignal('${s.id}')">Record</button>
+          </div>
+        </div>`}
+      </div>
+    </td></tr>`;
+  });
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function toggleDetail(id) {
+  document.getElementById('detail-' + id).classList.toggle('hidden');
+}
+
+function closeSignal(id) {
+  const s = signals.find(x => x.id === id);
+  if (!s) return;
+  const exitPrice = parseFloat(document.getElementById('exit-' + id).value);
+  const exitReason = document.getElementById('reason-' + id).value;
+  if (isNaN(exitPrice)) { alert('Enter exit price'); return; }
+
+  // Use fillPrice if set, else entrySignal
+  const entry = s.fillPrice ?? s.entrySignal;
+  if (entry == null || s.stop == null) { alert('Signal missing entry or stop'); return; }
+
+  const risk = Math.abs(entry - s.stop);
+  const pnlPoints = (s.direction === 'BUY') ? (exitPrice - entry) : (entry - exitPrice);
+  const rMultiple = risk > 0 ? +(pnlPoints / risk).toFixed(2) : 0;
+
+  s.outcome = {
+    exitPrice, exitReason,
+    rMultiple,
+    pnlUsd: null, pnlPct: null,
+    mae: null, mfe: null,
+    timeInTradeSec: null,
+    closedAt: new Date().toISOString()
+  };
+  if (s.status === 'fired') s.status = 'taken';
+  save();
+  renderJournal();
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ============ DASHBOARD ============
+function renderDashboard() {
+  const closed = signals.filter(s => s.outcome);
+  const taken = closed.filter(s => s.status !== 'skipped');
+
+  // Core stats (taken only — skipped are tracked separately)
+  const wins = taken.filter(s => s.outcome.rMultiple > 0);
+  const losses = taken.filter(s => s.outcome.rMultiple <= 0);
+  const totalR = taken.reduce((a,s) => a + s.outcome.rMultiple, 0);
+  const winRate = taken.length ? (wins.length / taken.length * 100) : 0;
+  const avgWin = wins.length ? wins.reduce((a,s)=>a+s.outcome.rMultiple,0)/wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((a,s)=>a+s.outcome.rMultiple,0)/losses.length : 0;
+  const expectancy = taken.length ? (winRate/100 * avgWin) + ((1-winRate/100) * avgLoss) : 0;
+  const grossWin = wins.reduce((a,s)=>a+s.outcome.rMultiple,0);
+  const grossLoss = Math.abs(losses.reduce((a,s)=>a+s.outcome.rMultiple,0));
+  const profitFactor = grossLoss > 0 ? (grossWin/grossLoss) : (grossWin > 0 ? Infinity : 0);
+
+  // Equity curve + drawdown
+  let cum = 0, peak = 0, maxDD = 0;
+  const curve = [0];
+  taken.slice().reverse().forEach(s => {
+    cum += s.outcome.rMultiple;
+    curve.push(cum);
+    if (cum > peak) peak = cum;
+    const dd = peak - cum;
+    if (dd > maxDD) maxDD = dd;
+  });
+
+  document.getElementById('coreStats').innerHTML = `
+    ${statCard('Signals (taken)', taken.length)}
+    ${statCard('Win Rate', winRate.toFixed(1) + '%', winRate >= 50 ? 'green' : 'red')}
+    ${statCard('Avg Win', avgWin.toFixed(2) + 'R', 'green')}
+    ${statCard('Avg Loss', avgLoss.toFixed(2) + 'R', 'red')}
+    ${statCard('Expectancy', expectancy.toFixed(2) + 'R', expectancy > 0 ? 'green' : 'red')}
+    ${statCard('Total R', totalR.toFixed(2), totalR >= 0 ? 'green' : 'red')}
+    ${statCard('Profit Factor', profitFactor === Infinity ? '∞' : profitFactor.toFixed(2), profitFactor >= 1.5 ? 'green' : (profitFactor >= 1 ? '' : 'red'))}
+    ${statCard('Max Drawdown', maxDD.toFixed(2) + 'R', 'red')}
+  `;
+
+  drawEquity(curve);
+
+  // Breakdowns
+  document.getElementById('breakdownEvent').innerHTML = breakdown(closed, s => s.eventName);
+  document.getElementById('breakdownPair').innerHTML = breakdown(closed, s => s.pair);
+  document.getElementById('breakdownSpike').innerHTML = breakdown(closed, s => s.spikeClass);
+  document.getElementById('breakdownConf').innerHTML = breakdown(closed, s => confBucket(s.confidence));
+
+  // Taken vs skipped
+  const skipped = signals.filter(s => s.status === 'skipped' && s.outcome);
+  document.getElementById('takenSkipped').innerHTML = `
+    <p class="muted" style="margin-bottom:8px;">If skipped signals have better R than taken ones, your discretion is hurting you.</p>
+    <table><thead><tr><th>Group</th><th>Count</th><th>Avg R</th><th>Win Rate</th></tr></thead><tbody>
+    <tr><td>Taken</td><td>${taken.length}</td>
+        <td>${taken.length ? (taken.reduce((a,s)=>a+s.outcome.rMultiple,0)/taken.length).toFixed(2) : '—'}R</td>
+        <td>${taken.length ? (wins.length/taken.length*100).toFixed(1) : '—'}%</td></tr>
+    <tr><td>Skipped</td><td>${skipped.length}</td>
+        <td>${skipped.length ? (skipped.reduce((a,s)=>a+s.outcome.rMultiple,0)/skipped.length).toFixed(2) : '—'}R</td>
+        <td>${skipped.length ? (skipped.filter(s=>s.outcome.rMultiple>0).length/skipped.length*100).toFixed(1) : '—'}%</td></tr>
+    </tbody></table>`;
+}
+
+function statCard(label, value, cls='') {
+  return `<div class="stat"><div class="label">${label}</div><div class="value ${cls}">${value}</div></div>`;
+}
+
+function confBucket(c) {
+  if (c == null) return 'unknown';
+  if (c >= 80) return '80–100';
+  if (c >= 60) return '60–79';
+  if (c >= 40) return '40–59';
+  return '<40';
+}
+
+function breakdown(closed, keyFn) {
+  if (!closed.length) return '<div class="empty">No closed trades yet.</div>';
+  const groups = {};
+  closed.forEach(s => {
+    const k = keyFn(s);
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(s);
+  });
+  let rows = '';
+  Object.keys(groups).sort().forEach(k => {
+    const arr = groups[k];
+    const r = arr.reduce((a,s)=>a+s.outcome.rMultiple,0);
+    const avg = r/arr.length;
+    const wr = arr.filter(s=>s.outcome.rMultiple>0).length / arr.length * 100;
+    rows += `<tr><td>${esc(k)}</td><td>${arr.length}</td>
+      <td class="${avg>=0?'':'red'}" style="${avg>=0?'color:var(--green)':''}">${avg.toFixed(2)}R</td>
+      <td>${r.toFixed(2)}R</td>
+      <td>${wr.toFixed(1)}%</td></tr>`;
+  });
+  return `<table><thead><tr><th>Group</th><th>Trades</th><th>Avg R</th><th>Total R</th><th>Win Rate</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function drawEquity(curve) {
+  const c = document.getElementById('equityCanvas');
+  const ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = c.getBoundingClientRect();
+  c.width = rect.width * dpr;
+  c.height = 220 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = 220, pad = 30;
+
+  ctx.fillStyle = '#1c2230';
+  ctx.fillRect(0, 0, W, H);
+
+  if (curve.length < 2) {
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No closed trades yet', W/2, H/2);
+    return;
+  }
+
+  const min = Math.min(...curve, 0);
+  const max = Math.max(...curve, 0);
+  const range = (max - min) || 1;
+  const x = i => pad + (i/(curve.length-1)) * (W - pad*2);
+  const y = v => H - pad - ((v - min)/range) * (H - pad*2);
+
+  // Zero line
+  ctx.strokeStyle = '#2a3140';
+  ctx.beginPath(); ctx.moveTo(pad, y(0)); ctx.lineTo(W-pad, y(0)); ctx.stroke();
+
+  // Curve
+  ctx.strokeStyle = max >= 0 ? '#3fb950' : '#f85149';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  curve.forEach((v,i) => i ? ctx.lineTo(x(i),y(v)) : ctx.moveTo(x(i),y(v)));
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(max.toFixed(1)+'R', pad, pad-8);
+  ctx.fillText(min.toFixed(1)+'R', pad, H-pad+16);
+}
+
+// ============ EXPORT / IMPORT ============
+function exportCSV() {
+  if (!signals.length) return alert('No data');
+  const cols = ['createdAt','eventName','pair','direction','confidence','spikeClass','status','surpriseZ','entrySignal','stop','target','exitPrice','exitReason','rMultiple'];
+  let csv = cols.join(',') + '\n';
+  signals.forEach(s => {
+    const row = [s.createdAt, s.eventName, s.pair, s.direction, s.confidence, s.spikeClass, s.status, s.surpriseZ, s.entrySignal, s.stop, s.target,
+      s.outcome?.exitPrice ?? '', s.outcome?.exitReason ?? '', s.outcome?.rMultiple ?? ''];
+    csv += row.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',') + '\n';
+  });
+  download(csv, 'signals.csv', 'text/csv');
+}
+
+function exportJSON() {
+  download(JSON.stringify(signals, null, 2), 'signals.json', 'application/json');
+}
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!Array.isArray(imported)) throw new Error('Not an array');
+      if (!confirm(`Import ${imported.length} signals? This will replace current data.`)) return;
+      signals = imported;
+      save(); renderJournal(); renderDashboard();
+      alert('Imported ✓');
+    } catch (err) { alert('Invalid JSON: ' + err.message); }
+  };
+  r.readAsText(file);
+}
+
+function clearAll() {
+  if (!confirm('Delete ALL signals? This cannot be undone.')) return;
+  signals = [];
+  save(); renderJournal(); renderDashboard();
+}
+
+function download(content, name, mime) {
+  const blob = new Blob([content], {type: mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+// ============ INIT ============
+updateStorageInfo();
+renderJournal();
+renderDashboard();
+window.addEventListener('resize', () => { if (!document.getElementById('tab-dashboard').classList.contains('hidden')) renderDashboard(); });
+</script>
+</body>
+</html>
